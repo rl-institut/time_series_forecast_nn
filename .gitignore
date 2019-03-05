@@ -1,0 +1,10 @@
+# Exclude PyCharm settings.
+.idea/
+__pycache__/
+# Exclude virtual environments.
+venv*
+# Exclude compilation data.
+*__pycache__*
+*pytest_cache*
+# Exclude fitted models. 
+*.model
