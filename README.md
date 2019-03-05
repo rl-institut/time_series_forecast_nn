@@ -8,3 +8,7 @@ In order to use this template, it simply can be run. All necessary data for a te
 
 ### Test run
 The repository contains two time series that can be used for a test run. The input data contains the power of renewables in the German energy grid as well as the total electrical load. The ouput data, that should be predicted, is the spot market price of the EEX. Both time series are for the year 2015. 
+
+## Animation
+An animation was implemented that visualizes the predicted an actual output of a test data set. An example looks like the following: 
+![](https://github.com/rl-institut/time_series_forecast_nn/blob/master/demo/demo.gif)
