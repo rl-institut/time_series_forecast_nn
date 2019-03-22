@@ -7,15 +7,12 @@ with keras (https://keras.io/) and a tensorflow backend (https://www.tensorflow.
 The parameters to set up the template are given in the first section. The second section contains the code. Examples
 in the comments try to explain each step so that the template can be adjusted if needed.
 
-In this template, an example of the electricity price prediction based on the power of renewables in the grid and the
-electricity consumption data is used. The data is divided into input and output data:
-
 Input data: Data used for the prediction, later on called x_data (e.g. power renewables and demand data).
 Output data: The data that should be predicted, later on called y_data (e.g. intraday electricity price).
 
 To define how the input and the output of the neural net are connected, the time series data can be connected with
-different offsets. An overview of the offsets in given in the following, where the data sets compared are
-DATA SET IN 1, DATA SET IN 2 and DATA SET OUT:
+different offsets. An overview of the offsets is given in the following, where the data sets compared are
+DATA SET IN 1 (e.g. power renewables), DATA SET IN 2 (e.g. demand data) and DATA SET OUT (e.g. electricity price):
 
                     | --- step distance --------| ~~~ DATA SET IN 1 2 ~ |
                     | ~~~ DATA SET IN 1 1 ~ |
@@ -81,9 +78,11 @@ output_max = None
 
 # Define if the test data should be animated.
 is_animation_wanted = True
+# Define if the model applied on the training data should be animated (this might help visualizing overfitting).
+is_animation_training_data_wanted = True
 
 # Define the number of epochs (how many time the training data should be used for training).
-n_epoch = 15
+n_epoch = 100
 
 # Define the activation function type of the two hidden layers (often used are 'relu' -> tf.nn.relu,
 # 'sigmoid' -> tf.nn.sigmoid, 'tanh' -> tf.nn.tanh)
@@ -96,11 +95,11 @@ n_node = 512
 is_gru_used = False
 
 # GRU PARAMETERS (JUST USED IF is_gru_used IS SET TO True
-# Define the number of steps that should be aggregated in one batch.
+# GRU: Define the number of steps that should be aggregated in one batch.
 batch_len = 30
-# Define the number of steps between two sequential batches.
+# GRU: Define the number of steps between two sequential batches.
 batch_step = 5
-# Define warm up steps, which is a period at the beginning of a batch whose results are not considered in the loss
+# GRU: Define warm up steps, which is a period at the beginning of a batch whose results are not considered in the loss
 # function. This can be used to improve the accuracy of GRU networks, while the first guesses are usually bad.
 # E.g. if the batch length (batch_len) is 30 and the warm up steps (warmup_step) is 5, only the entries 6-30 are
 # considered by the loss function.
@@ -386,7 +385,52 @@ if is_animation_wanted:
     ani = FuncAnimation(fig, update_animation, frames=n_frame, interval=1000, blit=False)
     plt.show()
 
+if is_animation_training_data_wanted:
+    # Set up the plot.
+    fig, ax = plt.subplots()
+    ax.set(xlim=(0, horizon_output), ylim=(output_min, output_max), xlabel='steps', ylabel='Output value')
+    steps = range(horizon_output)
 
+    ln1 = ax.step([], [], label='Predicted output')[0]
+    ln2 = ax.step([], [], label='Actual output', linestyle='--')[0]
+    lines = [ln1, ln2]
+    ax.legend(loc='lower center', shadow=True, fontsize='x-large')
+
+    def update_animation(frame):
+        # This function defines how a frame of the animation should look like.
+        if is_gru_used:
+            # For a GRU network, the data was divided into batches. The last batch of the test data will be animated.
+            # For the output, the normalized data has to be computed back to the actual values.
+
+            # Define the batch of the test data that should be animated.
+            batch_to_animate = -1
+            # Get the actual output of the batch to animate.
+            this_actual_result = y_train[batch_to_animate, frame, :] * (output_max - output_min) + output_min
+            # Calculate the prediction of one batch.
+            this_predicted_result = model.predict(np.expand_dims(x_train[batch_to_animate, :, :], axis=0))
+            this_predicted_result = this_predicted_result[0, frame, :] * (output_max - output_min) + output_min
+
+        else:
+            # If no GRU network was used, all the test data will be animated.
+            # To use the model for predictions, the data has be fed in the shape (1, number of inputs per step).
+            _this_input_data = x_train[frame].reshape((1, *x_train[frame].shape))
+            # The data has to be brought back from the normalized form to its actual values.
+            this_predicted_result = model.predict(_this_input_data) * (output_max - output_min) + output_min
+            this_actual_result = y_train[frame, :] * (output_max - output_min) + output_min
+
+        # Update the plot data.
+        lines[0].set_data(steps, this_predicted_result)
+        lines[1].set_data(steps, this_actual_result)
+        ax.set_title('Frame ' + str(frame + 1) + ' (of training data)')
+        return lines
+
+    if is_gru_used:
+        n_frame = batch_len
+    else:
+        n_frame = x_train.shape[0]
+    # Start the animation.
+    ani = FuncAnimation(fig, update_animation, frames=n_frame, interval=1000, blit=False)
+    plt.show()
 
 
 
